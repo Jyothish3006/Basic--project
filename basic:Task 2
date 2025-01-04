@@ -1,51 +1,37 @@
-#include <LedControl.h>
+import RPi.GPIO as GPIO
+import time
 
-// Create a LedControl instance
-// Parameters: DIN pin, CLK pin, CS pin, number of matrices
-LedControl lc = LedControl(11, 13, 10, 1);
+# GPIO Setup
+SOIL_MOISTURE_PIN = 17  # GPIO pin for soil moisture sensor
+RELAY_PIN = 27          # GPIO pin for relay module
 
-// Character set for scrolling text (A-Z, 0-9, space, symbols)
-byte alphabet[][8] = {
-  {0x00, 0x3E, 0x51, 0x49, 0x45, 0x3E, 0x00, 0x00}, // A
-  {0x00, 0x7F, 0x49, 0x49, 0x49, 0x36, 0x00, 0x00}, // B
-  {0x00, 0x3E, 0x41, 0x41, 0x41, 0x22, 0x00, 0x00}, // C
-  {0x00, 0x7F, 0x41, 0x41, 0x41, 0x3E, 0x00, 0x00}, // D
-  {0x00, 0x7F, 0x49, 0x49, 0x49, 0x41, 0x00, 0x00}, // E
-  {0x00, 0x7F, 0x48, 0x48, 0x48, 0x40, 0x00, 0x00}, // F
-  // Add more characters here if needed
-};
+# GPIO mode and pin setup
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(SOIL_MOISTURE_PIN, GPIO.IN)  # Set soil moisture sensor as input
+GPIO.setup(RELAY_PIN, GPIO.OUT)         # Set relay as output
+GPIO.output(RELAY_PIN, GPIO.HIGH)       # Initialize relay as OFF
 
-// Function to display a character on the matrix
-void displayChar(byte character[8]) {
-  for (int row = 0; row < 8; row++) {
-    lc.setRow(0, row, character[row]);
-  }
-}
+# Function to read soil moisture
+def is_soil_dry():
+    return GPIO.input(SOIL_MOISTURE_PIN) == 0  # 0 means dry, 1 means wet
 
-// Function to scroll a message
-void scrollMessage(String message) {
-  int len = message.length();
-  for (int i = 0; i < len; i++) {
-    char c = message[i];
-    if (c >= 'A' && c <= 'F') {
-      displayChar(alphabet[c - 'A']);
-    } else {
-      // Display blank for unsupported characters
-      byte blank[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      displayChar(blank);
-    }
-    delay(500); // Pause between characters
-  }
-}
+# Function to water plants
+def water_plants():
+    print("Soil is dry. Starting irrigation...")
+    GPIO.output(RELAY_PIN, GPIO.LOW)  # Turn on water pump
+    time.sleep(5)  # Water for 5 seconds (adjust as needed)
+    GPIO.output(RELAY_PIN, GPIO.HIGH)  # Turn off water pump
+    print("Irrigation complete.")
 
-void setup() {
-  lc.shutdown(0, false);    // Wake up the LED matrix
-  lc.setIntensity(0, 8);    // Set brightness (0 to 15)
-  lc.clearDisplay(0);       // Clear the display
-}
-
-void loop() {
-  String message = "HELLO";
-  scrollMessage(message);
-  delay(1000);
-}
+try:
+    print("Smart Irrigation System is running...")
+    while True:
+        if is_soil_dry():
+            water_plants()
+        else:
+            print("Soil is wet. No irrigation needed.")
+        time.sleep(10)  # Check soil moisture every 10 seconds
+except KeyboardInterrupt:
+    print("Exiting program.")
+finally:
+    GPIO.cleanup()  # Clean up GPIO on exit
